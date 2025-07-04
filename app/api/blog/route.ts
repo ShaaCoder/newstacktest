@@ -1,42 +1,42 @@
+// app/api/blog/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import BlogPost from '@/lib/models/BlogPost';
-import { BlogPostLean } from '@/lib/types';  // ✅ import the lean type
+import { BlogPostLean } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
+/* ─────────────  GET  /api/blog  ───────────── */
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
 
     const { searchParams } = new URL(request.url);
-    const page     = parseInt(searchParams.get('page')     || '1');
-    const limit    = parseInt(searchParams.get('limit')    || '10');
+    const page     = parseInt(searchParams.get('page')  || '1', 10);
+    const limit    = parseInt(searchParams.get('limit') || '10', 10);
     const search   =          searchParams.get('search')   || '';
     const category =          searchParams.get('category') || '';
 
     const query: any = { status: 'published' };
-
-    /* —– build $text + category filters —– */
-    if (search)              query.$text    = { $search: search };
+    if (search) query.$text = { $search: search };
     if (category && category !== 'all') query.category = category;
 
     const skip = (page - 1) * limit;
 
-    /* —– critical line: lean<BlogPostLean[]>() —– */
     const posts = await BlogPost.find(query)
       .sort({ published_at: -1 })
       .skip(skip)
       .limit(limit)
-      .lean<BlogPostLean[]>();        // ✅ _id is now Types.ObjectId
+      .lean<BlogPostLean[]>()         // ✅ typed array
+      .exec();
 
-    const totalPosts  = await BlogPost.countDocuments(query);
-    const totalPages  = Math.ceil(totalPosts / limit);
+    const totalPosts = await BlogPost.countDocuments(query);
+    const totalPages = Math.ceil(totalPosts / limit);
 
     return NextResponse.json({
       posts: posts.map(({ _id, ...rest }) => ({
         ...rest,
-        id: _id.toString(),           // ✅ no TS error now
+        id: _id.toString(),
       })),
       pagination: {
         currentPage: page,
@@ -50,7 +50,62 @@ export async function GET(request: NextRequest) {
     console.error('Blog API GET error:', err);
     return NextResponse.json(
       { error: 'Failed to fetch blog posts' },
-      { status: 500 }
+      { status: 500 },
+    );
+  }
+}
+
+/* ─────────────  POST  /api/blog  ───────────── */
+export async function POST(req: NextRequest) {
+  try {
+    await connectDB();
+    const body = await req.json();
+
+    const {
+      title, excerpt, content, author,
+      category, slug, status,
+      published_at, tags, image_url,
+      meta_title, meta_description,
+    } = body;
+
+    /* basic validation */
+    if (
+      !title || !excerpt || !content || !author ||
+      !slug  || !category || !['published', 'draft'].includes(status)
+    ) {
+      return NextResponse.json(
+        { error: 'Missing or invalid required fields' },
+        { status: 400 },
+      );
+    }
+
+    if (await BlogPost.findOne({ slug })) {
+      return NextResponse.json({ error: 'Slug already exists' }, { status: 409 });
+    }
+
+    const newPost = await BlogPost.create({
+      title, excerpt, content, author,
+      category, slug, status,
+      published_at: published_at || new Date(),
+      tags, image_url, meta_title, meta_description,
+    });
+
+    return NextResponse.json(
+      {
+        message: 'Post created successfully',
+        post: {
+          ...newPost.toObject(),
+          id: newPost._id.toString(),
+          _id: undefined,
+        },
+      },
+      { status: 201 },
+    );
+  } catch (err) {
+    console.error('Blog API POST error:', err);
+    return NextResponse.json(
+      { error: 'Failed to create blog post' },
+      { status: 500 },
     );
   }
 }

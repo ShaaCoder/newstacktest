@@ -5,12 +5,11 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import connectDB from '@/lib/mongodb';
 import BlogPost from '@/lib/models/BlogPost';
-import { BlogPostLean } from '@/lib/types'; // ✅
+import { BlogPostLean } from '@/lib/types';
 
-type Props = {
-  params: { slug: string };
-};
+type Props = { params: { slug: string } };
 
+/* ─────────────  <head> metadata  ───────────── */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   await connectDB();
 
@@ -18,8 +17,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     slug: params.slug,
     status: 'published',
   })
-    .lean<BlogPostLean>() // ✅
-    .exec();
+    .lean<BlogPostLean>()         // ✅ proper generic
+    .exec() as BlogPostLean | null;
 
   if (!post) return { title: 'Post Not Found' };
 
@@ -29,6 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+/* ─────────────  Page component  ───────────── */
 export default async function BlogDetailPage({ params }: Props) {
   await connectDB();
 
@@ -36,8 +36,8 @@ export default async function BlogDetailPage({ params }: Props) {
     slug: params.slug,
     status: 'published',
   })
-    .lean<BlogPostLean>() // ✅
-    .exec();
+    .lean<BlogPostLean>()
+    .exec() as BlogPostLean | null;
 
   if (!post) return notFound();
 

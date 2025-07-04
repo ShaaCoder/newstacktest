@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IBlogPost extends Document {
+  
   title: string;
   excerpt: string;
   content: string;
