@@ -1,9 +1,11 @@
+// app/blog/[slug]/page.tsx
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import connectDB from '@/lib/mongodb';
 import BlogPost from '@/lib/models/BlogPost';
+import { BlogPostLean } from '@/lib/types'; // ✅
 
 type Props = {
   params: { slug: string };
@@ -11,7 +13,13 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   await connectDB();
-  const post = await BlogPost.findOne({ slug: params.slug, status: 'published' }).lean();
+
+  const post = await BlogPost.findOne({
+    slug: params.slug,
+    status: 'published',
+  })
+    .lean<BlogPostLean>() // ✅
+    .exec();
 
   if (!post) return { title: 'Post Not Found' };
 
@@ -24,7 +32,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function BlogDetailPage({ params }: Props) {
   await connectDB();
 
-  const post = await BlogPost.findOne({ slug: params.slug, status: 'published' }).lean();
+  const post = await BlogPost.findOne({
+    slug: params.slug,
+    status: 'published',
+  })
+    .lean<BlogPostLean>() // ✅
+    .exec();
 
   if (!post) return notFound();
 
@@ -43,7 +56,10 @@ export default async function BlogDetailPage({ params }: Props) {
         <p className="text-gray-500 text-sm mb-6">
           Published on {new Date(post.published_at).toLocaleDateString()} by {post.author}
         </p>
-        <div className="prose prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: post.content }} />
+        <div
+          className="prose prose-lg max-w-none"
+          dangerouslySetInnerHTML={{ __html: post.content }}
+        />
       </main>
       <Footer />
     </div>
