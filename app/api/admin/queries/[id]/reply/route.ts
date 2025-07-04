@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Query from '@/lib/models/Query';
+import { QueryLean } from '@/lib/types';           // ✅
 
 export async function POST(
   request: NextRequest,
@@ -9,9 +10,8 @@ export async function POST(
   try {
     await connectDB();
 
-    const body = await request.json();
+    const { message } = await request.json();
     const { id } = params;
-    const { message } = body;
 
     const updatedQuery = await Query.findByIdAndUpdate(
       id,
@@ -21,7 +21,9 @@ export async function POST(
         reply_message: message,
       },
       { new: true, runValidators: true }
-    ).lean();
+    )
+      .lean<QueryLean>()                           // ✅ type‑safe lean
+      .exec();
 
     if (!updatedQuery) {
       return NextResponse.json(
@@ -30,16 +32,15 @@ export async function POST(
       );
     }
 
-    // Here you would typically send an email notification
-    // For now, we'll just return success
+    /** TODO: send email here */
 
     return NextResponse.json({
       ...updatedQuery,
       id: updatedQuery._id.toString(),
       _id: undefined,
     });
-  } catch (error) {
-    console.error('Reply to query error:', error);
+  } catch (err) {
+    console.error('Reply to query error:', err);
     return NextResponse.json(
       { error: 'Failed to send reply' },
       { status: 500 }

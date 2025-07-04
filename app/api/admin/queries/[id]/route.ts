@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Query from '@/lib/models/Query';
+import { QueryLean } from '@/lib/types';           // ✅
 
 export async function PATCH(
   request: NextRequest,
@@ -9,14 +10,16 @@ export async function PATCH(
   try {
     await connectDB();
 
-    const body = await request.json();
+    const updates = await request.json();
     const { id } = params;
 
     const updatedQuery = await Query.findByIdAndUpdate(
       id,
-      body,
+      updates,
       { new: true, runValidators: true }
-    ).lean();
+    )
+      .lean<QueryLean>()                           // ✅ type‑safe lean
+      .exec();
 
     if (!updatedQuery) {
       return NextResponse.json(
@@ -30,8 +33,8 @@ export async function PATCH(
       id: updatedQuery._id.toString(),
       _id: undefined,
     });
-  } catch (error) {
-    console.error('Update query error:', error);
+  } catch (err) {
+    console.error('Update query error:', err);
     return NextResponse.json(
       { error: 'Failed to update query' },
       { status: 500 }
