@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import BlogPost from '@/lib/models/BlogPost';
+import { BlogPostLean } from '@/lib/types'; // ✅ import the lean type
 
+// ================= GET =================
 export async function GET() {
   try {
     await connectDB();
 
     const posts = await BlogPost.find({})
       .sort({ created_at: -1 })
-      .lean();
+      .lean<BlogPostLean[]>(); // ✅ properly typed lean array
 
     return NextResponse.json({
-      posts: posts.map(post => ({
+      posts: posts.map((post) => ({
         ...post,
-        id: post._id.toString(),
+        id: post._id.toString(), // ✅ _id is properly typed
         _id: undefined,
       })),
       total: posts.length,
@@ -27,12 +29,13 @@ export async function GET() {
   }
 }
 
+// ================= POST =================
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
 
     const body = await request.json();
-    
+
     // Generate slug from title
     const slug = body.title.toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
@@ -47,7 +50,7 @@ export async function POST(request: NextRequest) {
     const savedPost = await newPost.save();
 
     return NextResponse.json({
-      ...savedPost.toObject(),
+      ...savedPost.toObject(), // ✅ safe conversion
       id: savedPost._id.toString(),
       _id: undefined,
     }, { status: 201 });
